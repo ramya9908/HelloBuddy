@@ -15,6 +15,9 @@ const { sessionMiddleware } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// FIXED: Trust proxy for Render deployment
+app.set('trust proxy', 1);
+
 // Minimal logging configuration - only essential messages
 const logger = winston.createLogger({
   level: 'error',
@@ -37,10 +40,14 @@ app.use(helmet({
   },
 }));
 
-// CORS configuration
+// UPDATED: CORS configuration with Netlify URLs
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-domain.com']
+    ? [
+        'https://your-netlify-app.netlify.app', // Replace with your actual Netlify URL
+        'https://hellobuiddy.netlify.app',      // Custom domain if you get one
+        'https://hellobuiddy-frontend.netlify.app' // Alternative naming
+      ]
     : [
         'http://localhost:5173',
         'http://localhost:3000', 
@@ -122,7 +129,7 @@ app.get('/', (req, res) => {
       admin: '/api/admin/*'
     },
     frontend_url: process.env.NODE_ENV === 'production' 
-      ? 'https://your-domain.com'
+      ? 'https://your-netlify-app.netlify.app'
       : 'http://localhost:5173'
   });
 });
