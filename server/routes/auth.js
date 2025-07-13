@@ -17,15 +17,6 @@ const emailQueue = [];
 const processingEmails = new Set();
 const userCache = new Map();
 
-// Cookie configuration for cross-origin setup
-const getCookieConfig = () => ({
-  httpOnly: false,           // ✅ FIXED: Allow JavaScript to read cookie
-  secure: process.env.NODE_ENV === 'production', // Use secure in production
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // none for cross-origin in prod
-  path: '/',
-  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-});
-
 const processEmailQueue = async () => {
   if (emailQueue.length === 0 || processingEmails.size >= 5) return;
   
@@ -470,8 +461,10 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// ✅ UPDATED: Permanent code login - sends sessionId in response body
 const handlePermanentCodeLoginOptimized = async (req, res, permanentCode) => {
   const startTime = Date.now();
+  console.log('🔑 Permanent code login attempt for code:', permanentCode.substring(0, 2) + '****');
 
   const cacheKey = `perm_${permanentCode}`;
   let user = userCache.get(cacheKey);
@@ -489,10 +482,12 @@ const handlePermanentCodeLoginOptimized = async (req, res, permanentCode) => {
       `, [permanentCode]);
 
       if (users.length === 0) {
+        console.log('❌ Invalid permanent code');
         return res.status(400).json({ error: 'Invalid permanent login code' });
       }
 
       user = users[0];
+      console.log('✅ User found:', user.email);
       
       userCache.set(cacheKey, user);
       setTimeout(() => userCache.delete(cacheKey), 5 * 60 * 1000);
@@ -505,24 +500,28 @@ const handlePermanentCodeLoginOptimized = async (req, res, permanentCode) => {
   const sessionId = uuidv4();
   const sessionExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+  console.log('🆔 Creating session:', sessionId.substring(0, 8) + '...');
+
   const connection = await pool.getConnection();
   try {
     await connection.execute(`
       INSERT INTO sessions (id, user_id, expires_at, ip_address, user_agent)
       VALUES (?, ?, ?, ?, ?)
     `, [sessionId, user.id, sessionExpiresAt, req.ip, req.get('User-Agent')]);
+    
+    console.log('✅ Session created in database');
   } finally {
     connection.release();
   }
 
   const processingTime = Date.now() - startTime;
 
-  // ✅ FIXED: Cookie settings that allow JavaScript access
-  res.cookie('sessionId', sessionId, getCookieConfig());
+  // ✅ THE FIX: Send sessionId in response body instead of cookie
+  console.log('📤 Sending sessionId in response body instead of cookie');
 
   res.json({
     message: 'Login successful',
-    sessionId: sessionId,
+    sessionId: sessionId,  // ← Frontend will store this in localStorage
     processingTime: `${processingTime}ms`,
     user: {
       id: user.id,
@@ -544,6 +543,7 @@ const handlePermanentCodeLoginOptimized = async (req, res, permanentCode) => {
   });
 };
 
+// ✅ UPDATED: Email login verification - sends sessionId in response body
 router.post('/verify-login', async (req, res) => {
   const { email, code } = req.body;
 
@@ -598,12 +598,12 @@ router.post('/verify-login', async (req, res) => {
 
     await connection.commit();
 
-    // ✅ FIXED: Cookie settings that allow JavaScript access
-    res.cookie('sessionId', sessionId, getCookieConfig());
+    console.log('📤 Sending sessionId in response body after email verification');
 
+    // ✅ THE FIX: Send sessionId in response body instead of cookie
     res.json({
       message: 'Login successful',
-      sessionId: sessionId,
+      sessionId: sessionId,  // ← Frontend will store this in localStorage
       user: {
         id: user.id,
         email: user.email,
@@ -636,9 +636,15 @@ router.get('/me', async (req, res) => {
   const sessionId = req.cookies.sessionId || 
                    (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
   
+  console.log('🔍 Auth check - sessionId from cookie:', req.cookies.sessionId ? 'found' : 'missing');
+  console.log('🔍 Auth check - sessionId from header:', req.headers.authorization ? 'found' : 'missing');
+  
   if (!sessionId) {
+    console.log('❌ No session found in request');
     return res.status(401).json({ error: 'No session found' });
   }
+
+  console.log('🔍 Checking session:', sessionId.substring(0, 8) + '...');
 
   const connection = await pool.getConnection();
   
@@ -654,10 +660,12 @@ router.get('/me', async (req, res) => {
     `, [sessionId]);
 
     if (sessions.length === 0) {
+      console.log('❌ Invalid or expired session');
       return res.status(401).json({ error: 'Invalid or expired session' });
     }
 
     const session = sessions[0];
+    console.log('✅ Valid session found for:', session.email);
 
     res.json({
       user: {
@@ -681,6 +689,7 @@ router.get('/me', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('💥 Auth check error:', error);
     logger.error('Auth check error:', error);
     res.status(500).json({ error: 'Authentication check failed' });
   } finally {
@@ -693,9 +702,11 @@ router.post('/logout', async (req, res) => {
                    (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
   
   if (sessionId) {
+    console.log('🚪 Logging out session:', sessionId.substring(0, 8) + '...');
     const connection = await pool.getConnection();
     try {
       const [result] = await connection.execute('DELETE FROM sessions WHERE id = ?', [sessionId]);
+      console.log('✅ Session deleted from database');
     } catch (error) {
       logger.error('Logout error:', error);
     } finally {
@@ -703,14 +714,7 @@ router.post('/logout', async (req, res) => {
     }
   }
 
-  // ✅ FIXED: Clear cookie settings
-  res.clearCookie('sessionId', {
-    path: '/',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: false
-  });
-  
+  console.log('✅ Logout successful - session cleared from database');
   res.json({ message: 'Logged out successfully' });
 });
 

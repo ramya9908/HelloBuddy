@@ -27,39 +27,59 @@ const logger = winston.createLogger({
   ]
 });
 
-// Security middleware
+// Security middleware - relaxed for development
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
+  contentSecurityPolicy: false  // Disable CSP for easier development
 }));
 
-// ✅ UPDATED: CORS configuration with your frontend domains
+// ✅ FIXED: More permissive CORS configuration for development
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        'https://your-netlify-app.netlify.app', // Replace with your actual Netlify URL
-        'https://hellobuiddy.netlify.app',      // Custom domain if you get one
-        'https://hellobuiddy-frontend.netlify.app', // Alternative naming
-        'https://your-frontend-domain.com'      // Add your actual frontend domain here
-      ]
-    : [
-        'http://localhost:5173',
-        'http://localhost:3000', 
-        'http://127.0.0.1:5173',
-        'http://localhost:4173'
-      ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow localhost on any port for development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Allow your production domains
+    const allowedOrigins = [
+      'https://your-netlify-app.netlify.app',
+      'https://hellobuiddy.netlify.app',
+      'https://hellobuiddy-frontend.netlify.app'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // For development, allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie'],
-  exposedHeaders: ['Set-Cookie']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Cookie',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'X-File-Name'
+  ],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200 // For legacy browser support
 }));
+
+// Add OPTIONS handler for all routes
+app.options('*', cors());
 
 // Rate limiting
 const generalLimiter = rateLimit({
@@ -76,7 +96,8 @@ const authLimiter = rateLimit({
   max: 50,
   message: { error: 'Too many authentication attempts' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV !== 'production' // Skip rate limiting in development
 });
 
 app.use(generalLimiter);
@@ -85,6 +106,21 @@ app.use(generalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.path} from ${req.ip}`);
+  if (req.path.includes('/auth/')) {
+    console.log('🔐 Auth request:', {
+      method: req.method,
+      path: req.path,
+      origin: req.headers.origin,
+      userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
+      cookies: req.headers.cookie ? 'present' : 'none'
+    });
+  }
+  next();
+});
 
 // Health check endpoint with server health message
 app.get('/health', (req, res) => {
@@ -122,6 +158,7 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Social Engagement Platform API',
     status: 'running',
+    timestamp: new Date().toISOString(),
     endpoints: {
       health: '/health',
       api_status: '/api/status',
@@ -137,6 +174,7 @@ app.get('/', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
+  console.error('💥 Server error:', err.message);
   logger.error('Unhandled error:', {
     error: err.message,
     stack: err.stack,
@@ -154,6 +192,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use('*', (req, res) => {
+  console.log('❌ 404:', req.method, req.originalUrl);
   res.status(404).json({ 
     error: 'Route not found',
     message: `The endpoint ${req.method} ${req.originalUrl} does not exist`,
@@ -171,7 +210,8 @@ async function startServer() {
     
     const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 Frontend URL: ${process.env.NODE_ENV === 'production' ? 'Production URLs' : 'http://localhost:5173'}`);
+      console.log(`🌐 CORS enabled for all localhost origins`);
+      console.log(`🍪 Cookies enabled with credentials: true`);
       console.log('✅ Server working ✓');
     });
 
