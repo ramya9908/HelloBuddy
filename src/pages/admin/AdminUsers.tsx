@@ -43,7 +43,7 @@ interface EditingUser {
   isVerified: boolean;
 }
 
-const API_URL = 'http://localhost:3001'; // Replace with your actual API URL
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState<User[]>([]);

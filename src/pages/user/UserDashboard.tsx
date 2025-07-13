@@ -37,7 +37,7 @@ interface User {
   createdAt: string;
 }
 
-const API_URL = 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Post section configurations
 const POST_SECTIONS = {
