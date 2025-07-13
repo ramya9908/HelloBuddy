@@ -57,6 +57,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Simple debug interceptor (no cookie manipulation needed)
+  useEffect(() => {
+    const responseInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          console.log('🚨 401 Error Details:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            responseData: error.response?.data
+          });
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -109,6 +130,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      // Clear the sessionId cookie
+      document.cookie = 'sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     }
   }, []);
 

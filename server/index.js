@@ -40,13 +40,14 @@ app.use(helmet({
   },
 }));
 
-// UPDATED: CORS configuration with Netlify URLs
+// ✅ UPDATED: CORS configuration with your frontend domains
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [
         'https://your-netlify-app.netlify.app', // Replace with your actual Netlify URL
         'https://hellobuiddy.netlify.app',      // Custom domain if you get one
-        'https://hellobuiddy-frontend.netlify.app' // Alternative naming
+        'https://hellobuiddy-frontend.netlify.app', // Alternative naming
+        'https://your-frontend-domain.com'      // Add your actual frontend domain here
       ]
     : [
         'http://localhost:5173',
@@ -162,12 +163,16 @@ app.use('*', (req, res) => {
 
 async function startServer() {
   try {
-    console.log('Database working...');
+    console.log('🔄 Starting server...');
+    console.log('📍 Environment:', process.env.NODE_ENV || 'development');
+    console.log('🔌 Database working...');
     await initializeDatabase();
-    console.log('Database working ✓');
+    console.log('✅ Database working ✓');
     
     const server = app.listen(PORT, () => {
-      console.log('Server working ✓');
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌐 Frontend URL: ${process.env.NODE_ENV === 'production' ? 'Production URLs' : 'http://localhost:5173'}`);
+      console.log('✅ Server working ✓');
     });
 
     server.on('error', (error) => {
@@ -177,11 +182,11 @@ async function startServer() {
 
       switch (error.code) {
         case 'EACCES':
-          console.error(`Port ${PORT} requires elevated privileges`);
+          console.error(`❌ Port ${PORT} requires elevated privileges`);
           process.exit(1);
           break;
         case 'EADDRINUSE':
-          console.error(`Port ${PORT} is already in use`);
+          console.error(`❌ Port ${PORT} is already in use`);
           process.exit(1);
           break;
         default:
@@ -190,27 +195,29 @@ async function startServer() {
     });
 
   } catch (error) {
-    console.error('Failed to start server:', error.message);
+    console.error('❌ Failed to start server:', error.message);
     process.exit(1);
   }
 }
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
+  console.log('📴 Received SIGTERM, shutting down gracefully');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
+  console.log('📴 Received SIGINT, shutting down gracefully');
   process.exit(0);
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('Critical error:', error.message);
+  console.error('💥 Critical error:', error.message);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('Critical error:', reason);
+  console.error('💥 Critical error:', reason);
   process.exit(1);
 });
 

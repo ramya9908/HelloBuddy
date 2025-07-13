@@ -17,6 +17,15 @@ const emailQueue = [];
 const processingEmails = new Set();
 const userCache = new Map();
 
+// Cookie configuration for cross-origin setup
+const getCookieConfig = () => ({
+  httpOnly: false,           // ✅ FIXED: Allow JavaScript to read cookie
+  secure: process.env.NODE_ENV === 'production', // Use secure in production
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // none for cross-origin in prod
+  path: '/',
+  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+});
+
 const processEmailQueue = async () => {
   if (emailQueue.length === 0 || processingEmails.size >= 5) return;
   
@@ -508,14 +517,8 @@ const handlePermanentCodeLoginOptimized = async (req, res, permanentCode) => {
 
   const processingTime = Date.now() - startTime;
 
-  // FIXED: Updated cookie settings for cross-origin requests
-  res.cookie('sessionId', sessionId, {
-    httpOnly: true,
-    secure: false,  // Allow HTTP for localhost testing
-    sameSite: 'none',  // Allow cross-site cookies
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000
-  });
+  // ✅ FIXED: Cookie settings that allow JavaScript access
+  res.cookie('sessionId', sessionId, getCookieConfig());
 
   res.json({
     message: 'Login successful',
@@ -595,14 +598,8 @@ router.post('/verify-login', async (req, res) => {
 
     await connection.commit();
 
-    // FIXED: Updated cookie settings for cross-origin requests
-    res.cookie('sessionId', sessionId, {
-      httpOnly: true,
-      secure: false,  // Allow HTTP for localhost testing
-      sameSite: 'none',  // Allow cross-site cookies
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    // ✅ FIXED: Cookie settings that allow JavaScript access
+    res.cookie('sessionId', sessionId, getCookieConfig());
 
     res.json({
       message: 'Login successful',
@@ -706,12 +703,12 @@ router.post('/logout', async (req, res) => {
     }
   }
 
-  // FIXED: Updated clearCookie settings
+  // ✅ FIXED: Clear cookie settings
   res.clearCookie('sessionId', {
     path: '/',
-    sameSite: 'none',
-    secure: false,
-    httpOnly: true
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: false
   });
   
   res.json({ message: 'Logged out successfully' });
