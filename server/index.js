@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const session = require('express-session');
 const rateLimit = require('express-rate-limit');
 const winston = require('winston');
 require('dotenv').config();
@@ -59,20 +58,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie'],
   exposedHeaders: ['Set-Cookie']
-}));
-
-// ADDED: Session configuration for cross-origin requests
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-fallback-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production' ? true : false, // HTTPS in production, HTTP in dev
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-site cookies
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined // Allow subdomain cookies in production
-  }
 }));
 
 // Rate limiting

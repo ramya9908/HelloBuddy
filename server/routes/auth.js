@@ -508,10 +508,11 @@ const handlePermanentCodeLoginOptimized = async (req, res, permanentCode) => {
 
   const processingTime = Date.now() - startTime;
 
+  // FIXED: Updated cookie settings for cross-origin requests
   res.cookie('sessionId', sessionId, {
-    httpOnly: false,
-    secure: false,
-    sameSite: 'lax',
+    httpOnly: true,
+    secure: false,  // Allow HTTP for localhost testing
+    sameSite: 'none',  // Allow cross-site cookies
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000
   });
@@ -594,10 +595,11 @@ router.post('/verify-login', async (req, res) => {
 
     await connection.commit();
 
+    // FIXED: Updated cookie settings for cross-origin requests
     res.cookie('sessionId', sessionId, {
-      httpOnly: false,
-      secure: false,
-      sameSite: 'lax',
+      httpOnly: true,
+      secure: false,  // Allow HTTP for localhost testing
+      sameSite: 'none',  // Allow cross-site cookies
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
@@ -704,9 +706,12 @@ router.post('/logout', async (req, res) => {
     }
   }
 
+  // FIXED: Updated clearCookie settings
   res.clearCookie('sessionId', {
     path: '/',
-    sameSite: 'lax'
+    sameSite: 'none',
+    secure: false,
+    httpOnly: true
   });
   
   res.json({ message: 'Logged out successfully' });
