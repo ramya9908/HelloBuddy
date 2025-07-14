@@ -36,7 +36,7 @@ interface User {
   earnings: number;
   createdAt: string;
 }
-
+// change if backend deploy changes in env file with api url
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Post section configurations
