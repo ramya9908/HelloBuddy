@@ -1,6 +1,5 @@
 [build]
-  base = "."
-  command = "cd src && npm install && npm run build"
+  command = "cd src && npm install && npm run build && ls -la dist"
   publish = "src/dist"
 
 [build.environment]
