@@ -94,7 +94,7 @@ const WithdrawEarnings = () => {
 
   // Start OTP timer
   const startOtpTimer = () => {
-    setOtpTimer(60); // 60 seconds
+    setOtpTimer(60); 
     const timer = setInterval(() => {
       setOtpTimer((prev) => {
         if (prev <= 1) {
