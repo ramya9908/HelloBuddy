@@ -106,7 +106,7 @@ const WithdrawEarnings = () => {
     }, 1000);
   };
 
-  // Send OTP for withdrawal
+  //OTP for withdrawal
   const sendWithdrawalOtp = async () => {
     try {
       setIsOtpLoading(true);
@@ -188,7 +188,7 @@ const WithdrawEarnings = () => {
       return;
     }
     
-    // Check method-specific minimum
+    
     if (withdrawalAmount < selectedWithdrawalMethod.minAmount) {
       toast.error(`Minimum amount for ${selectedWithdrawalMethod.name} is ₹${selectedWithdrawalMethod.minAmount}`);
       return;
